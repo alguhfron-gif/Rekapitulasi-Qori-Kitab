@@ -1,0 +1,6 @@
+{
+  "name": "Presensi Ngaji Kitab MTK",
+  "description": "Aplikasi pencatatan presensi asatidz dan guru ngaji TU Musyawarah Kitab MTK dengan rekap otomatis dan ekspor Excel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

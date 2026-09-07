@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "Peserta": {
+      "title": "Peserta",
+      "description": "Daftar guru atau asatidz peserta musyawarah kitab",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "idPps": { "type": "string" },
+        "nama": { "type": "string" },
+        "kelas": { "type": "string" },
+        "jabatan": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "idPps", "nama", "kelas", "jabatan"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Catatan presensi harian asatidz",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tanggal": { "type": "string" },
+        "idPps": { "type": "string" },
+        "nama": { "type": "string" },
+        "kelas": { "type": "string" },
+        "jabatan": { "type": "string" },
+        "status": { "type": "string", "enum": ["Hadir", "Sakit", "Izin", "Alfa"] },
+        "alasan": { "type": "string" },
+        "keterangan": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "tanggal", "idPps", "nama", "status", "timestamp"]
+    },
+    "HolidaySettings": {
+      "title": "HolidaySettings",
+      "description": "Pengaturan libur rutin dan hari libur khusus",
+      "type": "object",
+      "properties": {
+        "routineSeninMalam": { "type": "boolean" },
+        "routineKamisMalam": { "type": "boolean" },
+        "specialHolidays": { "type": "array" }
+      }
+    },
+    "MonthlyActiveDays": {
+      "title": "MonthlyActiveDays",
+      "description": "Pengaturan jumlah hari aktif bulanan",
+      "type": "object",
+      "properties": {
+        "days": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "/peserta/{pesertaId}": {
+      "schema": "Peserta",
+      "description": "Data peserta musyawarah kitab"
+    },
+    "/attendance_records/{recordId}": {
+      "schema": "AttendanceRecord",
+      "description": "Data presensi harian asatidz"
+    },
+    "/settings/holidays": {
+      "schema": "HolidaySettings",
+      "description": "Pengaturan libur rutin dan hari libur khusus"
+    },
+    "/settings/active_days": {
+      "schema": "MonthlyActiveDays",
+      "description": "Pengaturan jumlah hari aktif per bulan"
+    },
+    "/test/{testId}": {
+      "schema": "object",
+      "description": "Koleksi uji konektivitas server"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "Presensi Ngaji Kitab MTK",
+  "short_name": "Presensi MTK",
+  "description": "Sistem Presensi Asatidz Musyawarah Kitab MTK Tersinkronisasi Realtime",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
