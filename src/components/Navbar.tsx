@@ -2,6 +2,7 @@ import React from 'react';
 import {
   CalendarCheck,
   Calendar,
+  CalendarRange,
   LayoutDashboard,
   FileSpreadsheet,
   Users,
@@ -18,7 +19,14 @@ import {
 } from 'lucide-react';
 import { getHijriDateString, getTodayString } from '../utils/dateHelper';
 
-export type ActiveTab = 'input' | 'dashboard' | 'rekap' | 'master' | 'pengaturan';
+export type ActiveTab =
+  | 'input'
+  | 'dashboard'
+  | 'rekap_orang'
+  | 'riwayat_sesi'
+  | 'rekap'
+  | 'master'
+  | 'pengaturan';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -50,8 +58,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'dashboard' as ActiveTab, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'input' as ActiveTab, label: 'Input Presensi', icon: CalendarCheck, badge: 'Cepat' },
+    { id: 'rekap_orang' as ActiveTab, label: 'Rekapitulasi Per Orang', icon: FileSpreadsheet },
+    { id: 'riwayat_sesi' as ActiveTab, label: 'Riwayat Detail Sesi', icon: CalendarRange },
     { id: 'master' as ActiveTab, label: 'Master Data', icon: Users, count: totalPeserta },
-    { id: 'rekap' as ActiveTab, label: 'Rekapitulasi', icon: FileSpreadsheet },
     { id: 'pengaturan' as ActiveTab, label: 'Pengaturan', icon: Settings },
   ];
 

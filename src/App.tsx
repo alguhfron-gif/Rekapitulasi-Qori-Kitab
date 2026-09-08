@@ -28,6 +28,14 @@ import {
   cloudResetAllData,
   syncAllDataToCloud,
 } from './services/syncService';
+import {
+  CalendarCheck,
+  CalendarRange,
+  LayoutDashboard,
+  FileSpreadsheet,
+  Users,
+  Settings,
+} from 'lucide-react';
 import { Sidebar, HeaderBar, ActiveTab } from './components/Navbar';
 import { InputPresensi } from './components/InputPresensi';
 import { Dashboard } from './components/Dashboard';
@@ -403,7 +411,7 @@ export default function App() {
         )}
 
         {/* Dynamic View Scrollable Container */}
-        <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto space-y-6">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 overflow-y-auto space-y-6">
           {activeTab === 'input' && (
             <InputPresensi
               pesertaList={pesertaList}
@@ -420,17 +428,34 @@ export default function App() {
               pesertaList={pesertaList}
               records={records}
               activeDaysSetting={activeDays}
-              onNavigateToRekap={() => setActiveTab('rekap')}
+              onNavigateToRekap={() => setActiveTab('rekap_orang')}
               onNavigateToInput={() => setActiveTab('input')}
             />
           )}
 
-          {activeTab === 'rekap' && (
+          {(activeTab === 'rekap_orang' || activeTab === 'rekap') && (
             <Rekapitulasi
+              mode="rekap"
               pesertaList={pesertaList}
               records={records}
               activeDaysSetting={activeDays}
               onDeleteRecord={handleDeleteRecord}
+              onEditPeserta={handleEditPeserta}
+              onSaveRecord={handleSaveRecord}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+            />
+          )}
+
+          {activeTab === 'riwayat_sesi' && (
+            <Rekapitulasi
+              mode="detail"
+              pesertaList={pesertaList}
+              records={records}
+              activeDaysSetting={activeDays}
+              onDeleteRecord={handleDeleteRecord}
+              onEditPeserta={handleEditPeserta}
+              onSaveRecord={handleSaveRecord}
+              onNavigateTab={(tab) => setActiveTab(tab)}
             />
           )}
 
@@ -474,6 +499,90 @@ export default function App() {
             </div>
           </footer>
         </div>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <nav
+          aria-label="Navigasi Bawah Mobile"
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 flex items-center justify-around py-1.5 px-1 shadow-2xl overflow-x-auto"
+        >
+          <button
+            type="button"
+            onClick={() => setActiveTab('input')}
+            className={`flex flex-col items-center py-1 px-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer shrink-0 ${
+              activeTab === 'input'
+                ? 'text-emerald-400 bg-emerald-950/60'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <CalendarCheck className="w-4 h-4 mb-0.5" />
+            <span>Presensi</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex flex-col items-center py-1 px-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer shrink-0 ${
+              activeTab === 'dashboard'
+                ? 'text-emerald-400 bg-emerald-950/60'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4 mb-0.5" />
+            <span>Dashboard</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('rekap_orang')}
+            className={`flex flex-col items-center py-1 px-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer shrink-0 ${
+              activeTab === 'rekap_orang' || activeTab === 'rekap'
+                ? 'text-emerald-400 bg-emerald-950/60'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4 mb-0.5" />
+            <span>Rekap</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('riwayat_sesi')}
+            className={`flex flex-col items-center py-1 px-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer shrink-0 ${
+              activeTab === 'riwayat_sesi'
+                ? 'text-emerald-400 bg-emerald-950/60'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <CalendarRange className="w-4 h-4 mb-0.5" />
+            <span>Riwayat</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('master')}
+            className={`flex flex-col items-center py-1 px-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer shrink-0 ${
+              activeTab === 'master'
+                ? 'text-emerald-400 bg-emerald-950/60'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Users className="w-4 h-4 mb-0.5" />
+            <span>Asatidz</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('pengaturan')}
+            className={`flex flex-col items-center py-1 px-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer shrink-0 ${
+              activeTab === 'pengaturan'
+                ? 'text-emerald-400 bg-emerald-950/60'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Settings className="w-4 h-4 mb-0.5" />
+            <span>Setting</span>
+          </button>
+        </nav>
       </main>
 
       {/* Sync & Mobile Download Modal */}
