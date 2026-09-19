@@ -2,38 +2,55 @@ export type AttendanceStatus = 'Hadir' | 'Sakit' | 'Izin' | 'Alfa';
 
 export type AttendanceReason = 'Sakit' | 'Izin Bepergian' | 'Alasan Lain' | '';
 
-export const TINGKAT_MAJLIS_LIST = [
+export const KELAS_OPTIONS = [
   'Aliyah',
-  'Tsanawiyah Kelas III',
-  'Tsanawiyah Kelas II',
-  'Tsanawiyah Kelas I',
-  'Ibtidaiyah Kelas 6',
-  'Ibtidaiyah Kelas 5',
-  'Ibtidaiyah Kelas 4',
+  'Tsanawiyah 3',
+  'Tsanawiyah 2',
+  'Tsanawiyah 1',
+  'Ibtidaiyah 6',
+  'Ibtidaiyah 5',
+  'Ibtidaiyah 4',
   'Ibtidaiyah 1-3',
   'Idadiyah PK',
   'Idadiyah Reguler',
   'Idadiyah Takhossus',
+  'Umum',
 ] as const;
 
+export const MAJLIS_OPTIONS = [
+  'Majlis Utama',
+  'Majlis Al-Fath',
+  'Majlis Al-Ihsan',
+  'Majlis An-Nur',
+  'Majlis Raudhah',
+  'Majlis Darussalam',
+  'Majlis Al-Barokah',
+  'Umum',
+] as const;
+
+export const TINGKAT_MAJLIS_LIST = KELAS_OPTIONS;
 export type TingkatMajlis = (typeof TINGKAT_MAJLIS_LIST)[number];
 
 export interface Peserta {
-  id: string; // unique ID or timestamp
-  idPps: string; // e.g. "PPS-001", "1023", etc.
-  nama: string;
-  kelas: string; // e.g. Tingkat majlis
-  jabatan: string; // e.g. "Guru Fathul Qorib", "Mustahiq", "Badal Guru"
+  id: string; // unique ID
+  idPps: string; // 1. ID Pps
+  nama: string; // 2. Nama
+  dom: string; // 3. Dom (Domisili / Asal Daerah / Asrama)
+  kelas: string; // 4. Kelas
+  majlis: string; // 5. Majlis
+  jabatan: string; // 6. Jabatan
   createdAt?: string;
 }
 
 export interface AttendanceRecord {
   id: string;
   tanggal: string; // Format: YYYY-MM-DD
-  idPps: string;
-  nama: string;
-  kelas: string;
-  jabatan: string;
+  idPps: string; // 1. ID Pps
+  nama: string; // 2. Nama
+  dom: string; // 3. Dom
+  kelas: string; // 4. Kelas
+  majlis: string; // 5. Majlis
+  jabatan: string; // 6. Jabatan
   status: AttendanceStatus;
   alasan?: AttendanceReason;
   keterangan?: string;
@@ -57,10 +74,12 @@ export interface MonthlyActiveDays {
 }
 
 export interface RekapPesertaItem {
-  idPps: string;
-  nama: string;
-  kelas: string;
-  jabatan: string;
+  idPps: string; // 1. ID Pps
+  nama: string; // 2. Nama
+  dom: string; // 3. Dom
+  kelas: string; // 4. Kelas
+  majlis: string; // 5. Majlis
+  jabatan: string; // 6. Jabatan
   hariAktif: number;
   hadir: number;
   sakit: number;
@@ -71,5 +90,14 @@ export interface RekapPesertaItem {
   trendPanah: 'up' | 'flat' | 'down'; // e.g. ▲, ▬, ▼
   detailTanggalIzin?: string;
   detailAlasan?: string;
+}
+
+export interface SessionLog {
+  id: string;
+  action: string;
+  tanggal?: string;
+  detail: string;
+  totalRecords?: number;
+  timestamp: number;
 }
 

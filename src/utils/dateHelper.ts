@@ -154,19 +154,25 @@ export interface HolidayCheckResult {
  * Routine holidays in MTK: Selasa (Tuesday) and Jumat (Friday),
  * as well as any special holidays inputted by TU.
  */
-export const checkIsHoliday = (dateStr: string, settings: HolidaySettings): HolidayCheckResult => {
+export const checkIsHoliday = (dateStr: string, settings?: HolidaySettings | null): HolidayCheckResult => {
   if (!dateStr) return { isHoliday: false };
 
   // 1. Check special holidays first (specific dates)
-  if (settings && settings.specialHolidays) {
-    const specialMatch = settings.specialHolidays.find((h: SpecialHoliday) => h.tanggal === dateStr);
-    if (specialMatch) {
-      return {
-        isHoliday: true,
-        reason: specialMatch.keterangan || 'Libur Khusus MTK',
-        type: 'tanggal',
-      };
+  try {
+    if (settings && Array.isArray(settings.specialHolidays)) {
+      const specialMatch = settings.specialHolidays.find(
+        (h: SpecialHoliday) => h && h.tanggal === dateStr
+      );
+      if (specialMatch) {
+        return {
+          isHoliday: true,
+          reason: specialMatch.keterangan || 'Libur Khusus MTK',
+          type: 'tanggal',
+        };
+      }
     }
+  } catch (e) {
+    console.error('Special holiday check error', e);
   }
 
   // 2. Check routine holidays: Selasa (Tuesday) & Jumat (Friday)

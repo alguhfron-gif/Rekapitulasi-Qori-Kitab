@@ -1,12 +1,11 @@
 {
-  "projectId": "universal-overview-040ks",
-  "appId": "1:483147478653:web:eed1a0af02f597fdde6314",
-  "apiKey": "AIzaSyDkXPqaUfkEhhVquS6AtpUM1ubuOEcxUJo",
-  "authDomain": "universal-overview-040ks.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-presensingajikit-c677e2f8-98e7-443d-ba2e-76b76aa66c0f",
-  "storageBucket": "universal-overview-040ks.firebasestorage.app",
-  "messagingSenderId": "483147478653",
-  "measurementId": "",
-  "oAuthClientId": "483147478653-nia7aolf7igbnpe5fdqs0m2ov4erteup.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "apiKey": "AIzaSyAeHZccgCEfZUJqhDM8sXQPaIz9jBCPAnM",
+  "authDomain": "rekapitulasi-qori-kitab.firebaseapp.com",
+  "databaseURL": "https://rekapitulasi-qori-kitab-default-rtdb.asia-southeast1.firebasedatabase.app",
+  "projectId": "rekapitulasi-qori-kitab",
+  "storageBucket": "rekapitulasi-qori-kitab.firebasestorage.app",
+  "messagingSenderId": "302311985132",
+  "appId": "1:302311985132:web:dce12ea19efd7017723ac9",
+  "measurementId": "G-7MFZ1J95ZF",
+  "firestoreDatabaseId": "(default)"
 }

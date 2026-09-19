@@ -10,6 +10,10 @@ import {
   ChevronRight,
   PieChart as PieIcon,
   BarChart3,
+  Cloud,
+  RefreshCw,
+  Wifi,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -18,6 +22,9 @@ interface DashboardProps {
   activeDaysSetting: MonthlyActiveDays;
   onNavigateToRekap: () => void;
   onNavigateToInput: () => void;
+  syncStatus?: 'synced' | 'syncing' | 'offline';
+  onSyncAllToFirebase?: () => Promise<void>;
+  isSyncingAll?: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -26,6 +33,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   activeDaysSetting,
   onNavigateToRekap,
   onNavigateToInput,
+  syncStatus = 'synced',
+  onSyncAllToFirebase,
+  isSyncingAll = false,
 }) => {
   const currentDate = new Date();
   const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
@@ -142,6 +152,57 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Firebase Cloud Sync Status Card */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            {isSyncingAll ? (
+              <RefreshCw className="w-5 h-5 animate-spin text-emerald-400" />
+            ) : syncStatus === 'offline' ? (
+              <Wifi className="w-5 h-5 text-amber-400" />
+            ) : (
+              <Cloud className="w-5 h-5 text-emerald-400" />
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-sm text-white">Firebase Firestore Cloud Sync</h3>
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                  syncStatus === 'synced'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                    : syncStatus === 'syncing'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                }`}
+              >
+                {syncStatus === 'synced' ? 'Tersinkron Realtime' : syncStatus === 'syncing' ? 'Menyinkronkan...' : 'Offline'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Data terhubung ke database cloud. Presensi seketika sinkron antara Laptop/PC dan seluruh HP asatidz/panitia.
+            </p>
+          </div>
+        </div>
+
+        {onSyncAllToFirebase && (
+          <button
+            type="button"
+            id="btn-dashboard-sync-firebase"
+            onClick={onSyncAllToFirebase}
+            disabled={isSyncingAll}
+            className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-2 shrink-0 cursor-pointer active:scale-95"
+          >
+            {isSyncingAll ? (
+              <RefreshCw className="w-4 h-4 animate-spin text-white" />
+            ) : (
+              <RefreshCw className="w-4 h-4 text-white" />
+            )}
+            <span>{isSyncingAll ? 'Menyinkronkan...' : 'Singkronkan Data Sekarang'}</span>
+          </button>
+        )}
+      </div>
+
       {/* Month & Year Filter Bar */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>

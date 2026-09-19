@@ -2,17 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Presensi MTK Musyawarah collections
-    match /peserta/{pesertaId} {
-      allow read, write: if true;
-    }
-    match /attendance_records/{recordId} {
-      allow read, write: if true;
-    }
-    match /settings/{settingId} {
-      allow read, write: if true;
-    }
-    match /test/{testId} {
+    match /{document=**} {
       allow read, write: if true;
     }
   }
 }
+

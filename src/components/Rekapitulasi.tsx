@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Peserta,
   AttendanceRecord,
   MonthlyActiveDays,
   RekapPesertaItem,
   TINGKAT_MAJLIS_LIST,
+  MAJLIS_OPTIONS,
   AttendanceStatus,
   AttendanceReason,
 } from '../types';
@@ -40,6 +41,9 @@ interface RekapitulasiProps {
   records: AttendanceRecord[];
   activeDaysSetting: MonthlyActiveDays;
   onDeleteRecord: (id: string) => void;
+  onDeletePeserta?: (id: string) => void;
+  onDeleteMultipleRecords?: (ids: string[]) => void;
+  onSaveActiveDays?: (activeDays: MonthlyActiveDays) => void;
   onEditPeserta?: (updatedPeserta: Peserta) => void;
   onSaveRecord?: (recordData: Omit<AttendanceRecord, 'id' | 'timestamp'>) => void;
   onNavigateTab?: (tab: ActiveTab) => void;
@@ -53,6 +57,9 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
   records,
   activeDaysSetting,
   onDeleteRecord,
+  onDeletePeserta,
+  onDeleteMultipleRecords,
+  onSaveActiveDays,
   onEditPeserta,
   onSaveRecord,
   onNavigateTab,
@@ -66,6 +73,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
   const [customEndDate, setCustomEndDate] = useState<string>(getTodayString());
   const [selectedHijriMonth, setSelectedHijriMonth] = useState<number>(3); // Rabi'ul Awwal default
   const [filterKelas, setFilterKelas] = useState<string>('ALL');
+  const [filterMajlis, setFilterMajlis] = useState<string>('ALL');
   const activeView = mode;
 
   // Search & Pagination for Tab 1: Tabel Rekapitulasi Per Orang
@@ -78,14 +86,22 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
   const [entriesPerPageDetail, setEntriesPerPageDetail] = useState<number>(10);
   const [currentPageDetail, setCurrentPageDetail] = useState<number>(1);
 
+  // Bulk selection in Tab 2
+  const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
+
+  // Notification Toast State
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   // Edit Modals
   const [editingPeserta, setEditingPeserta] = useState<Peserta | null>(null);
   const [pesertaForm, setPesertaForm] = useState<{
     idPps: string;
     nama: string;
+    dom: string;
     kelas: string;
+    majlis: string;
     jabatan: string;
-  }>({ idPps: '', nama: '', kelas: '', jabatan: '' });
+  }>({ idPps: '', nama: '', dom: '', kelas: '', majlis: '', jabatan: '' });
 
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [recordForm, setRecordForm] = useState<{
@@ -131,29 +147,77 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
     return Array.from(set).sort();
   }, [pesertaList]);
 
-  // Calculate default active days for the filtered range
-  const estimatedActiveDays = useMemo(() => {
-    const parts = dateRange.startDate.split('-');
-    const yearMonth = `${parts[0]}-${parts[1]}`;
-    if (activeDaysSetting[yearMonth]) {
-      return activeDaysSetting[yearMonth];
-    }
+  // Unique list of majlis
+  const majlisList = useMemo(() => {
+    const set = new Set<string>();
+    pesertaList.forEach((p) => {
+      if (p.majlis) set.add(p.majlis);
+    });
+    return Array.from(set).sort();
+  }, [pesertaList]);
 
+  // Period keys for saving and querying active days
+  const gregorianKey = useMemo(() => {
+    const parts = dateRange.startDate.split('-');
+    return `${parts[0]}-${parts[1]}`;
+  }, [dateRange.startDate]);
+
+  const hijriKey = useMemo(() => {
+    return `1448-${String(selectedHijriMonth).padStart(2, '0')}`;
+  }, [selectedHijriMonth]);
+
+  const periodKey = filterPreset === 'hijri' ? hijriKey : gregorianKey;
+
+  // Base calculated working days for the filtered range
+  const baseCalculatedDays = useMemo(() => {
     const start = new Date(dateRange.startDate);
     const end = new Date(dateRange.endDate);
     let workDays = 0;
     const cur = new Date(start);
     while (cur <= end) {
-      if (cur.getDay() !== 0) {
+      if (cur.getDay() !== 0) { // Senin - Sabtu
         workDays++;
       }
       cur.setDate(cur.getDate() + 1);
     }
     return Math.max(1, workDays);
-  }, [dateRange, activeDaysSetting]);
+  }, [dateRange.startDate, dateRange.endDate]);
+
+  // Current effective active days: stored override or base calculated
+  const storedOverride = activeDaysSetting[periodKey] ?? activeDaysSetting[gregorianKey];
+  const effectiveActiveDays = storedOverride !== undefined ? storedOverride : baseCalculatedDays;
+
+  // Local state for active days input
+  const [activeDaysInput, setActiveDaysInput] = useState<number>(effectiveActiveDays);
+
+  // Synchronize local input whenever effectiveActiveDays or period changes
+  useEffect(() => {
+    setActiveDaysInput(effectiveActiveDays);
+  }, [effectiveActiveDays, periodKey]);
+
+  // Handler for user adjusting active days (e.g. at end of month)
+  // When active days change, all alfa and attendance percentages recalculate instantly!
+  const handleUpdateActiveDays = (newDays: number) => {
+    const clamped = Math.max(1, Math.min(31, Math.round(newDays)));
+    setActiveDaysInput(clamped);
+    if (onSaveActiveDays) {
+      const updated: MonthlyActiveDays = {
+        ...activeDaysSetting,
+        [periodKey]: clamped,
+        [gregorianKey]: clamped,
+        [hijriKey]: clamped,
+      };
+      onSaveActiveDays(updated);
+    }
+    setToastMessage(
+      `Hari aktif periode ${dateRange.label} disesuaikan menjadi ${clamped} hari. Seluruh alfa & persentase otomatis terhitung ulang!`
+    );
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   // Compute Rekap Items per Peserta
   // Formula: Alfa = Hari Aktif - Hadir - Sakit - Izin
+  // When effectiveActiveDays changes, this memoized array recalculates immediately!
   const rekapData: RekapPesertaItem[] = useMemo(() => {
     return pesertaList.map((peserta) => {
       const pRecords = filteredRecords.filter((r) => r.idPps === peserta.idPps);
@@ -161,9 +225,12 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
       const sakit = pRecords.filter((r) => r.status === 'Sakit').length;
       const izin = pRecords.filter((r) => r.status === 'Izin').length;
 
-      const calculatedAlfa = Math.max(0, estimatedActiveDays - hadir - sakit - izin);
+      const calculatedAlfa = Math.max(0, effectiveActiveDays - hadir - sakit - izin);
       const persentaseKehadiran =
-        estimatedActiveDays > 0 ? Math.min(100, (hadir / estimatedActiveDays) * 100) : 0;
+        effectiveActiveDays > 0 ? Math.min(100, (hadir / effectiveActiveDays) * 100) : 0;
+      const persentaseRounded10 = Math.round(persentaseKehadiran / 10) * 10;
+      const trendPanah: 'up' | 'flat' | 'down' =
+        persentaseKehadiran >= 90 ? 'up' : persentaseKehadiran >= 70 ? 'flat' : 'down';
 
       const izinSakitRecords = pRecords.filter((r) => r.status !== 'Hadir');
       const detailTanggalIzin = izinSakitRecords
@@ -181,32 +248,39 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
       return {
         idPps: peserta.idPps,
         nama: peserta.nama,
+        dom: peserta.dom || '-',
         kelas: peserta.kelas,
+        majlis: peserta.majlis || 'Majlis Utama',
         jabatan: peserta.jabatan,
-        hariAktif: estimatedActiveDays,
+        hariAktif: effectiveActiveDays,
         hadir,
         sakit,
         izin,
         alfa: calculatedAlfa,
         persentaseKehadiran,
+        persentaseRounded10,
+        trendPanah,
         detailTanggalIzin,
         detailAlasan,
       };
     });
-  }, [pesertaList, filteredRecords, estimatedActiveDays]);
+  }, [pesertaList, filteredRecords, effectiveActiveDays]);
 
-  // Tab 1: Filtered Rekap Data by Search & Kelas
+  // Tab 1: Filtered Rekap Data by Search & Kelas & Majlis
   const filteredRekapData = useMemo(() => {
     return rekapData.filter((item) => {
       const query = searchRekap.trim().toLowerCase();
       const matchSearch =
         query === '' ||
         item.nama.toLowerCase().includes(query) ||
-        item.idPps.toLowerCase().includes(query);
+        item.idPps.toLowerCase().includes(query) ||
+        (item.dom && item.dom.toLowerCase().includes(query)) ||
+        (item.majlis && item.majlis.toLowerCase().includes(query));
       const matchKelas = filterKelas === 'ALL' || item.kelas === filterKelas;
-      return matchSearch && matchKelas;
+      const matchMajlis = filterMajlis === 'ALL' || item.majlis === filterMajlis;
+      return matchSearch && matchKelas && matchMajlis;
     });
-  }, [rekapData, searchRekap, filterKelas]);
+  }, [rekapData, searchRekap, filterKelas, filterMajlis]);
 
   // Tab 1: Pagination Calculations
   const totalItemsRekap = filteredRekapData.length;
@@ -218,7 +292,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
     return filteredRekapData.slice(startIdxRekap, endIdxRekap);
   }, [filteredRekapData, startIdxRekap, endIdxRekap]);
 
-  // Tab 2: Filtered Detail Records by Search & Kelas
+  // Tab 2: Filtered Detail Records by Search & Kelas & Majlis
   const filteredDetailRecords = useMemo(() => {
     return filteredRecords.filter((rec) => {
       const query = searchDetail.trim().toLowerCase();
@@ -226,12 +300,15 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
         query === '' ||
         rec.nama.toLowerCase().includes(query) ||
         rec.idPps.toLowerCase().includes(query) ||
+        (rec.dom && rec.dom.toLowerCase().includes(query)) ||
+        (rec.majlis && rec.majlis.toLowerCase().includes(query)) ||
         (rec.alasan && rec.alasan.toLowerCase().includes(query)) ||
         (rec.keterangan && rec.keterangan.toLowerCase().includes(query));
       const matchKelas = filterKelas === 'ALL' || rec.kelas === filterKelas;
-      return matchSearch && matchKelas;
+      const matchMajlis = filterMajlis === 'ALL' || rec.majlis === filterMajlis;
+      return matchSearch && matchKelas && matchMajlis;
     });
-  }, [filteredRecords, searchDetail, filterKelas]);
+  }, [filteredRecords, searchDetail, filterKelas, filterMajlis]);
 
   // Tab 2: Pagination Calculations
   const totalItemsDetail = filteredDetailRecords.length;
@@ -249,7 +326,9 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
     setPesertaForm({
       idPps: p.idPps,
       nama: p.nama,
+      dom: p.dom || '',
       kelas: p.kelas,
+      majlis: p.majlis || 'Majlis Utama',
       jabatan: p.jabatan,
     });
   };
@@ -268,7 +347,9 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
       ...editingPeserta,
       nama: pesertaForm.nama.trim(),
       idPps: pesertaForm.idPps.trim(),
+      dom: pesertaForm.dom.trim() || '-',
       kelas: pesertaForm.kelas,
+      majlis: pesertaForm.majlis.trim() || 'Majlis Utama',
       jabatan: pesertaForm.jabatan.trim(),
     };
 
@@ -296,7 +377,9 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
       tanggal: recordForm.tanggal,
       idPps: editingRecord.idPps,
       nama: editingRecord.nama,
+      dom: editingRecord.dom || '-',
       kelas: editingRecord.kelas,
+      majlis: editingRecord.majlis || 'Majlis Utama',
       jabatan: editingRecord.jabatan,
       status: recordForm.status,
       alasan: recordForm.status === 'Hadir' ? '' : recordForm.alasan,
@@ -477,11 +560,11 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
           </div>
         )}
 
-        {/* Filter Tingkat Majelis / Kelas */}
+        {/* Filter Kelas & Majlis */}
         <div className="pt-2 border-t border-slate-100 flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
             <Filter className="h-4 w-4 text-slate-400 shrink-0" />
-            <span>Filter Tingkat Majelis:</span>
+            <span>Filter Kelas:</span>
           </div>
           <select
             id="filter-kelas-rekap"
@@ -493,16 +576,131 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
             }}
             className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 cursor-pointer"
           >
-            <option value="ALL">Semua Tingkat Majelis ({classesList.length})</option>
+            <option value="ALL">Semua Kelas ({classesList.length})</option>
             {classesList.map((k) => (
               <option key={k} value={k}>
                 {k}
               </option>
             ))}
           </select>
-          <span className="text-xs text-slate-400">
+
+          <div className="flex items-center gap-2 text-xs text-slate-600 font-medium ml-2">
+            <span>Filter Majlis:</span>
+          </div>
+          <select
+            id="filter-majlis-rekap"
+            value={filterMajlis}
+            onChange={(e) => {
+              setFilterMajlis(e.target.value);
+              setCurrentPageRekap(1);
+              setCurrentPageDetail(1);
+            }}
+            className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50 cursor-pointer"
+          >
+            <option value="ALL">Semua Majlis ({majlisList.length})</option>
+            {majlisList.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+
+          <span className="text-xs text-slate-400 ml-auto">
             Menampilkan data periode: <strong>{dateRange.label}</strong>
           </span>
+        </div>
+      </div>
+
+      {/* Toast Feedback */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-700 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-500 animate-fade-in">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" />
+          <span className="text-xs font-semibold">{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="text-emerald-200 hover:text-white ml-2 text-sm cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* BANNER PENYESUAIAN HARI AKTIF DI AKHIR BULAN / PERIODE */}
+      <div className="bg-gradient-to-r from-emerald-900 via-slate-900 to-teal-950 text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-emerald-600/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <CalendarCheck className="h-4 w-4" />
+            </span>
+            <h3 className="font-bold text-sm sm:text-base text-white">
+              Penyesuaian Hari Aktif Periode: <span className="text-emerald-300">{dateRange.label}</span>
+            </h3>
+          </div>
+          <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+            Sesuaikan jumlah hari aktif di akhir bulan (misal ada libur mendadak/acara pondok). Begitu angka diubah, kolom <strong>Alfa</strong>, <strong>% Kehadiran</strong>, dan seluruh kalkulasi otomatis berubah serentak.
+          </p>
+        </div>
+
+        {/* Interactive Controls */}
+        <div className="flex items-center gap-2.5 flex-wrap bg-white/10 backdrop-blur-md p-2 rounded-xl border border-white/10 self-start md:self-auto">
+          <span className="text-xs text-slate-200 font-semibold pl-1">Hari Aktif:</span>
+          <div className="flex items-center bg-slate-900/80 rounded-lg border border-slate-700 overflow-hidden">
+            <button
+              type="button"
+              id="btn-decrement-active-days"
+              onClick={() => handleUpdateActiveDays(effectiveActiveDays - 1)}
+              className="px-2.5 py-1.5 text-slate-300 hover:text-white hover:bg-slate-800 text-sm font-bold transition cursor-pointer"
+              title="Kurang 1 hari"
+            >
+              -
+            </button>
+            <input
+              type="number"
+              id="input-active-days-rekap"
+              min={1}
+              max={31}
+              value={activeDaysInput}
+              onChange={(e) => setActiveDaysInput(Number(e.target.value))}
+              onBlur={() => handleUpdateActiveDays(activeDaysInput)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleUpdateActiveDays(activeDaysInput);
+                }
+              }}
+              className="w-14 text-center bg-transparent text-emerald-300 font-mono font-bold text-sm focus:outline-none focus:bg-slate-800 py-1"
+            />
+            <button
+              type="button"
+              id="btn-increment-active-days"
+              onClick={() => handleUpdateActiveDays(effectiveActiveDays + 1)}
+              className="px-2.5 py-1.5 text-slate-300 hover:text-white hover:bg-slate-800 text-sm font-bold transition cursor-pointer"
+              title="Tambah 1 hari"
+            >
+              +
+            </button>
+          </div>
+
+          <button
+            type="button"
+            id="btn-apply-active-days"
+            onClick={() => handleUpdateActiveDays(activeDaysInput)}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer active:scale-95"
+          >
+            Terapkan
+          </button>
+
+          {effectiveActiveDays !== baseCalculatedDays && (
+            <button
+              type="button"
+              id="btn-reset-to-calendar-days"
+              onClick={() => handleUpdateActiveDays(baseCalculatedDays)}
+              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition cursor-pointer"
+              title={`Kembalikan ke hitungan kalender standar (${baseCalculatedDays} hari)`}
+            >
+              Standar ({baseCalculatedDays} hr)
+            </button>
+          )}
         </div>
       </div>
 
@@ -556,7 +754,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
           <div className="px-4 py-2 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
             <span>
               Perhitungan Hari Aktif:{' '}
-              <strong className="text-slate-800">{estimatedActiveDays} hari</strong> • Rumus Alfa:{' '}
+              <strong className="text-slate-800">{effectiveActiveDays} hari</strong> • Rumus Alfa:{' '}
               <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono text-rose-700 font-bold">
                 Hari Aktif - Hadir - Sakit - Izin
               </code>
@@ -574,7 +772,9 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
                   <th className="py-3 px-3 w-12 text-center">No</th>
                   <th className="py-3 px-3">ID PPS</th>
                   <th className="py-3 px-4">Nama Asatidz</th>
-                  <th className="py-3 px-3">Tingkat Majelis</th>
+                  <th className="py-3 px-3">DOM</th>
+                  <th className="py-3 px-3">Kelas</th>
+                  <th className="py-3 px-3">Majlis</th>
                   <th className="py-3 px-3 text-center">Hari Aktif</th>
                   <th className="py-3 px-3 text-center text-emerald-700 font-bold">Hadir</th>
                   <th className="py-3 px-3 text-center text-amber-700 font-bold">Sakit</th>
@@ -589,7 +789,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
               <tbody className="divide-y divide-slate-100">
                 {paginatedRekapData.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="py-10 text-center text-slate-400">
+                    <td colSpan={14} className="py-10 text-center text-slate-400">
                       Tidak ada data asatidz yang cocok dengan pencarian atau filter.
                     </td>
                   </tr>
@@ -627,8 +827,18 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
                             {item.jabatan}
                           </span>
                         </td>
+                        <td className="py-3 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
+                            {item.dom || '-'}
+                          </span>
+                        </td>
                         <td className="py-3 px-3 text-slate-700 font-medium whitespace-nowrap">
                           {item.kelas}
+                        </td>
+                        <td className="py-3 px-3 text-slate-700 font-medium whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200 text-xs font-semibold">
+                            {item.majlis || '-'}
+                          </span>
                         </td>
                         <td className="py-3 px-3 text-center font-bold text-slate-600">
                           {item.hariAktif}
@@ -713,11 +923,28 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
                             <button
                               type="button"
                               onClick={() => handleExport(item.idPps)}
-                              className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                              className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
                               title="Export Excel Asatidz Ini"
                             >
                               <Download className="h-4 w-4" />
                             </button>
+                            {onDeletePeserta && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const p = pesertaList.find((x) => x.idPps === item.idPps);
+                                  if (p && confirm(`Hapus data asatidz ${p.nama} (${p.idPps}) dari sistem?`)) {
+                                    onDeletePeserta(p.id);
+                                    setToastMessage(`Data asatidz ${p.nama} berhasil dihapus.`);
+                                    setTimeout(() => setToastMessage(null), 3500);
+                                  }
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition cursor-pointer"
+                                title="Hapus Asatidz Ini"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -818,14 +1045,89 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
             </div>
           </div>
 
-          {/* Sub-info bar */}
-          <div className="px-4 py-2 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
-            <span>
-              Catatan riwayat sesi presensi individual pada rentang: <strong>{dateRange.label}</strong>
-            </span>
-            <span className="text-slate-500">
-              Total riwayat: <strong>{totalItemsDetail} catatan</strong>
-            </span>
+          {/* Sub-info bar with bulk delete & filter actions */}
+          <div className="px-4 py-2.5 bg-slate-100/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-700">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span>
+                Catatan riwayat sesi presensi individual periode: <strong>{dateRange.label}</strong>
+              </span>
+              <span className="text-slate-500">
+                (Total: <strong>{totalItemsDetail} catatan</strong>)
+              </span>
+            </div>
+
+            {/* Delete controls */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {selectedRecordIds.length > 0 && (
+                <div className="flex items-center gap-2 bg-rose-50 px-3 py-1 rounded-lg border border-rose-200 animate-fade-in">
+                  <span className="text-xs font-bold text-rose-700">
+                    {selectedRecordIds.length} terpilih
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Apakah Anda yakin ingin menghapus ${selectedRecordIds.length} catatan presensi terpilih?`
+                        )
+                      ) {
+                        if (onDeleteMultipleRecords) {
+                          onDeleteMultipleRecords(selectedRecordIds);
+                        } else {
+                          selectedRecordIds.forEach((id) => onDeleteRecord(id));
+                        }
+                        setSelectedRecordIds([]);
+                        setToastMessage(
+                          `${selectedRecordIds.length} catatan presensi berhasil dihapus.`
+                        );
+                        setTimeout(() => setToastMessage(null), 3500);
+                      }
+                    }}
+                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Hapus Terpilih</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRecordIds([])}
+                    className="text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                </div>
+              )}
+
+              {filteredDetailRecords.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `PERINGATAN: Apakah Anda yakin ingin menghapus SEMUA ${filteredDetailRecords.length} catatan presensi yang tampil pada periode "${dateRange.label}"?`
+                      )
+                    ) {
+                      const ids = filteredDetailRecords.map((r) => r.id);
+                      if (onDeleteMultipleRecords) {
+                        onDeleteMultipleRecords(ids);
+                      } else {
+                        ids.forEach((id) => onDeleteRecord(id));
+                      }
+                      setSelectedRecordIds([]);
+                      setToastMessage(
+                        `Semua (${ids.length}) catatan pada periode ${dateRange.label} berhasil dibersihkan.`
+                      );
+                      setTimeout(() => setToastMessage(null), 3500);
+                    }
+                  }}
+                  className="px-3 py-1 bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-rose-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                  title="Hapus semua riwayat presensi yang sedang tampil sesuai filter"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Hapus Semua Sesuai Filter ({filteredDetailRecords.length})</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Tabel Konten Tab 2 */}
@@ -833,11 +1135,36 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
             <table className="w-full text-left text-xs sm:text-sm">
               <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 text-xs uppercase font-semibold">
                 <tr>
+                  <th className="py-3 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={
+                        paginatedDetailRecords.length > 0 &&
+                        paginatedDetailRecords.every((r) => selectedRecordIds.includes(r.id))
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          const newIds = new Set(selectedRecordIds);
+                          paginatedDetailRecords.forEach((r) => newIds.add(r.id));
+                          setSelectedRecordIds(Array.from(newIds));
+                        } else {
+                          const pageIds = new Set(paginatedDetailRecords.map((r) => r.id));
+                          setSelectedRecordIds(
+                            selectedRecordIds.filter((id) => !pageIds.has(id))
+                          );
+                        }
+                      }}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      title="Pilih semua baris di halaman ini"
+                    />
+                  </th>
                   <th className="py-3 px-3 w-12 text-center">No</th>
                   <th className="py-3 px-4">Tanggal</th>
                   <th className="py-3 px-4">ID PPS</th>
                   <th className="py-3 px-4">Nama Asatidz</th>
-                  <th className="py-3 px-4">Tingkat Majelis</th>
+                  <th className="py-3 px-3">DOM</th>
+                  <th className="py-3 px-3">Kelas</th>
+                  <th className="py-3 px-3">Majlis</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4">Alasan</th>
                   <th className="py-3 px-4">Keterangan</th>
@@ -849,13 +1176,14 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
               <tbody className="divide-y divide-slate-100">
                 {paginatedDetailRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-10 text-center text-slate-400">
+                    <td colSpan={13} className="py-10 text-center text-slate-400">
                       Tidak ada catatan presensi pada rentang waktu atau pencarian ini.
                     </td>
                   </tr>
                 ) : (
                   paginatedDetailRecords.map((rec, idx) => {
                     const rowNumber = startIdxDetail + idx + 1;
+                    const isSelected = selectedRecordIds.includes(rec.id);
                     const statusBadge = {
                       Hadir: 'bg-emerald-100 text-emerald-800 border-emerald-300',
                       Sakit: 'bg-amber-100 text-amber-800 border-amber-300',
@@ -864,7 +1192,28 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
                     }[rec.status];
 
                     return (
-                      <tr key={rec.id} className="hover:bg-slate-50/80 transition">
+                      <tr
+                        key={rec.id}
+                        className={`transition ${
+                          isSelected ? 'bg-emerald-50/60' : 'hover:bg-slate-50/80'
+                        }`}
+                      >
+                        <td className="py-3.5 px-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedRecordIds([...selectedRecordIds, rec.id]);
+                              } else {
+                                setSelectedRecordIds(
+                                  selectedRecordIds.filter((id) => id !== rec.id)
+                                );
+                              }
+                            }}
+                            className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          />
+                        </td>
                         <td className="py-3 px-3 text-center text-slate-400 font-medium">
                           {rowNumber}
                         </td>
@@ -882,8 +1231,18 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
                             {rec.jabatan}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-slate-700 whitespace-nowrap">
+                        <td className="py-3.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
+                            {rec.dom || '-'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-3 text-slate-700 whitespace-nowrap">
                           {rec.kelas}
+                        </td>
+                        <td className="py-3.5 px-3 text-slate-700 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200 text-xs font-semibold">
+                            {rec.majlis || '-'}
+                          </span>
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <span
@@ -1032,7 +1391,20 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Tingkat Majelis <span className="text-rose-500">*</span>
+                  DOM (Domisili / Asal Daerah)
+                </label>
+                <input
+                  type="text"
+                  value={pesertaForm.dom}
+                  onChange={(e) => setPesertaForm({ ...pesertaForm, dom: e.target.value })}
+                  placeholder="Contoh: Bangkalan, Sampang, Asrama Al-Ghazali, dll."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  4. Kelas <span className="text-rose-500">*</span>
                 </label>
                 <select
                   value={pesertaForm.kelas}
@@ -1049,7 +1421,24 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Tugas / Jabatan Ngaji
+                  5. Majlis <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={pesertaForm.majlis}
+                  onChange={(e) => setPesertaForm({ ...pesertaForm, majlis: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white cursor-pointer"
+                >
+                  {MAJLIS_OPTIONS.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  6. Tugas / Jabatan Ngaji
                 </label>
                 <input
                   type="text"
@@ -1060,21 +1449,45 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditingPeserta(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition cursor-pointer flex items-center gap-1.5 active:scale-95"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Simpan Perubahan</span>
-                </button>
+              <div className="flex items-center justify-between gap-2 pt-4 border-t border-slate-100">
+                {onDeletePeserta && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Hapus data asatidz ${pesertaForm.nama} (${pesertaForm.idPps}) dari sistem?`
+                        )
+                      ) {
+                        const p = pesertaList.find((x) => x.idPps === pesertaForm.idPps);
+                        if (p) onDeletePeserta(p.id);
+                        setEditingPeserta(null);
+                        setToastMessage(`Data asatidz ${pesertaForm.nama} berhasil dihapus.`);
+                        setTimeout(() => setToastMessage(null), 3500);
+                      }
+                    }}
+                    className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Hapus Asatidz</span>
+                  </button>
+                )}
+                <div className="flex items-center gap-2 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setEditingPeserta(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition cursor-pointer flex items-center gap-1.5 active:scale-95"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Simpan Perubahan</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -1175,21 +1588,43 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-between gap-2 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setEditingRecord(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                  onClick={() => {
+                    if (
+                      editingRecord &&
+                      confirm(
+                        `Hapus catatan presensi tanggal ${editingRecord.tanggal} (${editingRecord.nama})?`
+                      )
+                    ) {
+                      onDeleteRecord(editingRecord.id);
+                      setEditingRecord(null);
+                      setToastMessage(`Catatan presensi berhasil dihapus.`);
+                      setTimeout(() => setToastMessage(null), 3500);
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition cursor-pointer flex items-center gap-1.5"
                 >
-                  Batal
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Hapus Catatan</span>
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-sm transition cursor-pointer flex items-center gap-1.5 active:scale-95"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Simpan Perubahan</span>
-                </button>
+                <div className="flex items-center gap-2 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setEditingRecord(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-sm transition cursor-pointer flex items-center gap-1.5 active:scale-95"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Simpan Perubahan</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -1220,7 +1655,7 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="font-semibold text-slate-700 block">Kolom yang diexport:</span>
                 <p className="text-slate-500 mt-1">
-                  ID PPS, Nama Asatidz, Tingkat Majelis, Jabatan, Hari Aktif, Hadir, Sakit, Izin, Alfa, Detail Tanggal Izin, Detail Alasan
+                  ID PPS, Nama Asatidz, DOM, Tingkat Majelis, Jabatan, Hari Aktif, Hadir, Sakit, Izin, Alfa, % Kehadiran, Detail Tanggal Izin, Detail Alasan
                 </p>
                 <div className="mt-2 text-emerald-800 font-semibold">
                   Periode: {dateRange.label}
@@ -1276,16 +1711,21 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
             <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-start justify-between">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-slate-900 text-base">
                     {selectedPesertaForDetail.nama}
                   </h3>
                   <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-bold font-mono">
                     {selectedPesertaForDetail.idPps}
                   </span>
+                  {selectedPesertaForDetail.dom && (
+                    <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold">
+                      DOM: {selectedPesertaForDetail.dom}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Majelis: {selectedPesertaForDetail.kelas} • Jabatan: {selectedPesertaForDetail.jabatan}
+                  Kelas: {selectedPesertaForDetail.kelas} • Majlis: {selectedPesertaForDetail.majlis || '-'} • Jabatan: {selectedPesertaForDetail.jabatan}
                 </p>
                 <p className="text-xs text-emerald-800 font-semibold mt-1">
                   Periode: {dateRange.label}
@@ -1365,10 +1805,28 @@ export const Rekapitulasi: React.FC<RekapitulasiProps> = ({
                                 setSelectedPesertaForDetail(null);
                                 handleOpenEditRecord(r);
                               }}
-                              className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
+                              className="p-1 text-slate-400 hover:text-blue-600 rounded transition cursor-pointer"
                               title="Edit presensi ini"
                             >
                               <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (
+                                  confirm(
+                                    `Hapus catatan presensi ${formatIndonesianDate(r.tanggal)}?`
+                                  )
+                                ) {
+                                  onDeleteRecord(r.id);
+                                  setToastMessage(`Catatan presensi berhasil dihapus.`);
+                                  setTimeout(() => setToastMessage(null), 3500);
+                                }
+                              }}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                              title="Hapus presensi ini"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>

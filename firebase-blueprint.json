@@ -8,11 +8,13 @@
         "id": { "type": "string" },
         "idPps": { "type": "string" },
         "nama": { "type": "string" },
+        "dom": { "type": "string" },
         "kelas": { "type": "string" },
+        "majlis": { "type": "string" },
         "jabatan": { "type": "string" },
         "createdAt": { "type": "string" }
       },
-      "required": ["id", "idPps", "nama", "kelas", "jabatan"]
+      "required": ["id", "idPps", "nama", "dom", "kelas", "majlis", "jabatan"]
     },
     "AttendanceRecord": {
       "title": "AttendanceRecord",
@@ -23,7 +25,9 @@
         "tanggal": { "type": "string" },
         "idPps": { "type": "string" },
         "nama": { "type": "string" },
+        "dom": { "type": "string" },
         "kelas": { "type": "string" },
+        "majlis": { "type": "string" },
         "jabatan": { "type": "string" },
         "status": { "type": "string", "enum": ["Hadir", "Sakit", "Izin", "Alfa"] },
         "alasan": { "type": "string" },
@@ -49,6 +53,20 @@
       "properties": {
         "days": { "type": "object" }
       }
+    },
+    "SessionLog": {
+      "title": "SessionLog",
+      "description": "Log riwayat sesi presensi dan sinkronisasi data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "action": { "type": "string" },
+        "tanggal": { "type": "string" },
+        "detail": { "type": "string" },
+        "totalRecords": { "type": "number" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "action", "timestamp"]
     }
   },
   "firestore": {
@@ -67,6 +85,10 @@
     "/settings/active_days": {
       "schema": "MonthlyActiveDays",
       "description": "Pengaturan jumlah hari aktif per bulan"
+    },
+    "/session_logs/{logId}": {
+      "schema": "SessionLog",
+      "description": "Log riwayat sesi presensi dan sinkronisasi"
     },
     "/test/{testId}": {
       "schema": "object",

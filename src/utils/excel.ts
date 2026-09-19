@@ -6,7 +6,9 @@ export const exportPesertaToExcel = (pesertaList: Peserta[], filename = 'Master_
     No: idx + 1,
     'ID PPS': p.idPps,
     Nama: p.nama,
-    'Kelas/Majelis': p.kelas,
+    DOM: p.dom || '-',
+    Kelas: p.kelas,
+    Majlis: p.majlis || '-',
     Jabatan: p.jabatan,
   }));
 
@@ -14,10 +16,12 @@ export const exportPesertaToExcel = (pesertaList: Peserta[], filename = 'Master_
   // Auto-fit column width
   const colWidths = [
     { wch: 6 }, // No
-    { wch: 15 }, // ID PPS
-    { wch: 30 }, // Nama
-    { wch: 20 }, // Kelas
-    { wch: 25 }, // Jabatan
+    { wch: 15 }, // 1. ID PPS
+    { wch: 30 }, // 2. Nama
+    { wch: 18 }, // 3. DOM
+    { wch: 20 }, // 4. Kelas
+    { wch: 20 }, // 5. Majlis
+    { wch: 25 }, // 6. Jabatan
   ];
   worksheet['!cols'] = colWidths;
 
@@ -31,19 +35,30 @@ export const downloadPesertaTemplate = (): void => {
     {
       'ID PPS': 'PPS-001',
       Nama: 'Ust. Fulan Al-Hafidz',
-      'Kelas/Majelis': 'Ula A',
+      DOM: 'Bangkalan',
+      Kelas: 'Aliyah',
+      Majlis: 'Majlis Utama',
       Jabatan: 'Guru Fiqih',
     },
     {
       'ID PPS': 'PPS-002',
       Nama: 'Ust. Zaid bin Tsabit',
-      'Kelas/Majelis': 'Wustho B',
+      DOM: 'Sampang',
+      Kelas: 'Tsanawiyah 3',
+      Majlis: 'Majlis Al-Fath',
       Jabatan: 'Guru Nahwu',
     },
   ];
 
   const worksheet = XLSX.utils.json_to_sheet(template);
-  worksheet['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 25 }];
+  worksheet['!cols'] = [
+    { wch: 15 }, // ID PPS
+    { wch: 30 }, // Nama
+    { wch: 18 }, // DOM
+    { wch: 20 }, // Kelas
+    { wch: 20 }, // Majlis
+    { wch: 25 }, // Jabatan
+  ];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Template Master');
   XLSX.writeFile(workbook, 'Template_Master_Peserta_MTK.xlsx');
@@ -68,13 +83,17 @@ export const parsePesertaFromExcel = (file: File): Promise<Peserta[]> => {
         let counter = Date.now();
 
         for (const row of json) {
-          // Flexible key lookup
+          // Flexible key lookup according to 6 required fields
           const idPps =
-            (row['ID PPS'] ?? row['ID'] ?? row['Id'] ?? row['id pps'] ?? row['No Induk'] ?? row['ID_PPS'])?.toString().trim() || '';
+            (row['ID PPS'] ?? row['ID Pps'] ?? row['ID'] ?? row['Id'] ?? row['id pps'] ?? row['No Induk'] ?? row['ID_PPS'])?.toString().trim() || '';
           const nama =
             (row['Nama'] ?? row['NAMA'] ?? row['Nama Lengkap'] ?? row['Nama Peserta'])?.toString().trim() || '';
+          const dom =
+            (row['DOM'] ?? row['Dom'] ?? row['dom'] ?? row['Domisili'] ?? row['Asal'] ?? row['Asrama'])?.toString().trim() || '-';
           const kelas =
-            (row['Kelas/Majelis'] ?? row['Kelas'] ?? row['Majelis'] ?? row['KELAS'])?.toString().trim() || 'Umum';
+            (row['Kelas'] ?? row['KELAS'] ?? row['Tingkat'] ?? row['Kelas/Majelis'])?.toString().trim() || 'Umum';
+          const majlis =
+            (row['Majlis'] ?? row['Majelis'] ?? row['MAJLIS'] ?? row['MAJELIS'] ?? row['Ruang Majlis'])?.toString().trim() || 'Majlis Utama';
           const jabatan =
             (row['Jabatan'] ?? row['JABATAN'] ?? row['Posisi'] ?? row['Tugas'])?.toString().trim() || 'Guru Ngaji';
 
@@ -84,7 +103,9 @@ export const parsePesertaFromExcel = (file: File): Promise<Peserta[]> => {
               id: `imp-${counter}-${Math.floor(Math.random() * 1000)}`,
               idPps: idPps || `PPS-${String(parsedList.length + 1).padStart(3, '0')}`,
               nama,
+              dom,
               kelas,
+              majlis,
               jabatan,
             });
           }
@@ -110,12 +131,14 @@ export const exportRekapToExcel = (
   titlePrefix = 'Rekap_Presensi_MTK',
   filterDescription = ''
 ): void => {
-  // Required columns by user:
-  // ID PPS, Nama, Kelas, Jabatan, Hari Aktif, Hadir, Sakit, Izin, Alfa, Detail Tanggal Izin, Detail Alasan
+  // Required columns in order:
+  // ID PPS, Nama, DOM, Kelas, Majlis, Jabatan, Hari Aktif, Hadir, Sakit, Izin, Alfa, % Kehadiran, Detail Tanggal Izin, Detail Alasan
   const data = rekapItems.map((item) => ({
     'ID PPS': item.idPps,
     Nama: item.nama,
+    DOM: item.dom || '-',
     Kelas: item.kelas,
+    Majlis: item.majlis || '-',
     Jabatan: item.jabatan,
     'Hari Aktif': item.hariAktif,
     Hadir: item.hadir,
@@ -133,7 +156,9 @@ export const exportRekapToExcel = (
   worksheet['!cols'] = [
     { wch: 12 }, // ID PPS
     { wch: 30 }, // Nama
+    { wch: 18 }, // DOM
     { wch: 16 }, // Kelas
+    { wch: 18 }, // Majlis
     { wch: 24 }, // Jabatan
     { wch: 12 }, // Hari Aktif
     { wch: 8 },  // Hadir

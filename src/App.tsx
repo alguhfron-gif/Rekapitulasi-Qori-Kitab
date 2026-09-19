@@ -19,9 +19,12 @@ import {
   subscribeToActiveDays,
   cloudSavePeserta,
   cloudDeletePeserta,
+  cloudDeleteMultiplePeserta,
+  cloudBulkSavePeserta,
   cloudReplaceAllPeserta,
   cloudSaveRecord,
   cloudDeleteRecord,
+  cloudDeleteMultipleRecords,
   cloudBulkSaveRecords,
   cloudSaveHolidays,
   cloudSaveActiveDays,
@@ -43,6 +46,7 @@ import { Rekapitulasi } from './components/Rekapitulasi';
 import { MasterData } from './components/MasterData';
 import { Pengaturan } from './components/Pengaturan';
 import { SyncModal } from './components/SyncModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { checkIsHoliday, getTodayString } from './utils/dateHelper';
 
 export default function App() {
@@ -66,10 +70,35 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
+    // Handle browser online/offline events accurately
+    const handleOnline = () => {
+      if (isMounted) setSyncStatus('synced');
+    };
+    const handleOffline = () => {
+      if (isMounted) setSyncStatus('offline');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     const setupSync = async () => {
-      setSyncStatus('syncing');
+      if (!navigator.onLine) {
+        setSyncStatus('offline');
+      } else {
+        setSyncStatus('syncing');
+      }
+
       await initializeCloudData();
       if (!isMounted) return;
+
+      const handleSyncError = () => {
+        if (!navigator.onLine && isMounted) {
+          setSyncStatus('offline');
+        } else if (isMounted) {
+          // Connected via local/RTDB fallback
+          setSyncStatus('synced');
+        }
+      };
 
       const unsubPeserta = subscribeToPeserta(
         (data) => {
@@ -78,7 +107,7 @@ export default function App() {
             setSyncStatus('synced');
           }
         },
-        () => setSyncStatus('offline')
+        handleSyncError
       );
 
       const unsubRecords = subscribeToRecords(
@@ -88,7 +117,7 @@ export default function App() {
             setSyncStatus('synced');
           }
         },
-        () => setSyncStatus('offline')
+        handleSyncError
       );
 
       const unsubHolidays = subscribeToHolidays(
@@ -98,7 +127,7 @@ export default function App() {
             setSyncStatus('synced');
           }
         },
-        () => setSyncStatus('offline')
+        handleSyncError
       );
 
       const unsubActiveDays = subscribeToActiveDays(
@@ -108,7 +137,7 @@ export default function App() {
             setSyncStatus('synced');
           }
         },
-        () => setSyncStatus('offline')
+        handleSyncError
       );
 
       return () => {
@@ -123,6 +152,8 @@ export default function App() {
 
     return () => {
       isMounted = false;
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
       cleanupPromise.then((cleanup) => cleanup && cleanup());
     };
   }, []);
@@ -205,6 +236,34 @@ export default function App() {
     }
   };
 
+  // Handler: Delete Multiple Peserta
+  const handleDeleteMultiplePeserta = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    setPesertaList((prev) => prev.filter((p) => !idSet.has(p.id)));
+    try {
+      setSyncStatus('syncing');
+      await cloudDeleteMultiplePeserta(ids);
+      setSyncStatus('synced');
+    } catch (e) {
+      console.error('Error deleting multiple peserta from cloud', e);
+      setSyncStatus('synced');
+    }
+  };
+
+  // Handler: Delete All Peserta
+  const handleDeleteAllPeserta = async () => {
+    setPesertaList([]);
+    try {
+      setSyncStatus('syncing');
+      await cloudReplaceAllPeserta([]);
+      setSyncStatus('synced');
+    } catch (e) {
+      console.error('Error deleting all peserta from cloud', e);
+      setSyncStatus('synced');
+    }
+  };
+
   // Handler: Import Peserta from Excel
   const handleImportPeserta = async (imported: Peserta[], mode: 'append' | 'replace') => {
     let finalPeserta: Peserta[] = [];
@@ -217,6 +276,7 @@ export default function App() {
         setSyncStatus('synced');
       } catch (e) {
         console.error('Error syncing replaced peserta to cloud', e);
+        setSyncStatus('synced');
       }
     } else {
       const existingIds = new Set(pesertaList.map((p) => p.idPps.toLowerCase()));
@@ -225,40 +285,40 @@ export default function App() {
       setPesertaList(finalPeserta);
       try {
         setSyncStatus('syncing');
-        for (const p of filteredNew) {
-          await cloudSavePeserta(p);
-        }
+        await cloudBulkSavePeserta(filteredNew);
         setSyncStatus('synced');
       } catch (e) {
         console.error('Error syncing appended peserta to cloud', e);
+        setSyncStatus('synced');
       }
     }
   };
 
   // Handler: Save or Update Attendance Record
   const handleSaveRecord = async (recordData: Omit<AttendanceRecord, 'id' | 'timestamp'>) => {
-    const existingIndex = records.findIndex(
-      (r) => r.tanggal === recordData.tanggal && r.idPps === recordData.idPps
-    );
-
-    const newRecord: AttendanceRecord = {
-      ...recordData,
-      id:
-        existingIndex >= 0
-          ? records[existingIndex].id
-          : `rec-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      timestamp: Date.now(),
-    };
-
-    if (existingIndex >= 0) {
-      const updated = [...records];
-      updated[existingIndex] = newRecord;
-      setRecords(updated);
-    } else {
-      setRecords((prev) => [newRecord, ...prev]);
-    }
-
     try {
+      const safeRecords = Array.isArray(records) ? records : [];
+      const existingIndex = safeRecords.findIndex(
+        (r) => r && r.tanggal === recordData.tanggal && r.idPps === recordData.idPps
+      );
+
+      const newRecord: AttendanceRecord = {
+        ...recordData,
+        id:
+          existingIndex >= 0 && safeRecords[existingIndex]?.id
+            ? safeRecords[existingIndex].id
+            : `rec-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        timestamp: Date.now(),
+      };
+
+      if (existingIndex >= 0) {
+        const updated = [...safeRecords];
+        updated[existingIndex] = newRecord;
+        setRecords(updated);
+      } else {
+        setRecords((prev) => [newRecord, ...(Array.isArray(prev) ? prev : [])]);
+      }
+
       setSyncStatus('syncing');
       await cloudSaveRecord(newRecord);
       setSyncStatus('synced');
@@ -270,38 +330,48 @@ export default function App() {
   // Handler: Bulk Mark Hadir
   const handleBulkMarkHadir = async (
     tanggal: string,
-    recordsToSave: Omit<AttendanceRecord, 'id' | 'timestamp'>[]
+    unrecordedPeserta: Peserta[]
   ) => {
-    const now = Date.now();
-    const updatedRecords = [...records];
-    const newOrUpdatedForCloud: AttendanceRecord[] = [];
-
-    recordsToSave.forEach((item) => {
-      const idx = updatedRecords.findIndex(
-        (r) => r.tanggal === tanggal && r.idPps === item.idPps
-      );
-      if (idx >= 0) {
-        const updated = {
-          ...updatedRecords[idx],
-          ...item,
-          timestamp: now,
-        };
-        updatedRecords[idx] = updated;
-        newOrUpdatedForCloud.push(updated);
-      } else {
-        const created: AttendanceRecord = {
-          ...item,
-          id: `rec-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          timestamp: now,
-        };
-        updatedRecords.unshift(created);
-        newOrUpdatedForCloud.push(created);
-      }
-    });
-
-    setRecords(updatedRecords);
-
     try {
+      const now = Date.now();
+      const updatedRecords = [...(Array.isArray(records) ? records : [])];
+      const newOrUpdatedForCloud: AttendanceRecord[] = [];
+
+      (unrecordedPeserta || []).forEach((item) => {
+        if (!item) return;
+        const idx = updatedRecords.findIndex(
+          (r) => r && r.tanggal === tanggal && r.idPps === item.idPps
+        );
+        if (idx >= 0) {
+          const updated: AttendanceRecord = {
+            ...updatedRecords[idx],
+            status: 'Hadir',
+            dom: item.dom || updatedRecords[idx].dom || '-',
+            majlis: item.majlis || updatedRecords[idx].majlis || 'Majlis Utama',
+            timestamp: now,
+          };
+          updatedRecords[idx] = updated;
+          newOrUpdatedForCloud.push(updated);
+        } else {
+          const created: AttendanceRecord = {
+            id: `rec-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            tanggal,
+            idPps: item.idPps || '',
+            nama: item.nama || '',
+            dom: item.dom || '-',
+            kelas: item.kelas || '',
+            majlis: item.majlis || 'Majlis Utama',
+            jabatan: item.jabatan || '',
+            status: 'Hadir',
+            timestamp: now,
+          };
+          updatedRecords.unshift(created);
+          newOrUpdatedForCloud.push(created);
+        }
+      });
+
+      setRecords(updatedRecords);
+
       setSyncStatus('syncing');
       await cloudBulkSaveRecords(newOrUpdatedForCloud);
       setSyncStatus('synced');
@@ -319,6 +389,37 @@ export default function App() {
       setSyncStatus('synced');
     } catch (e) {
       console.error('Error deleting record from cloud', e);
+    }
+  };
+
+  // Handler: Delete All Records on a Specific Date
+  const handleDeleteAllRecordsOnDate = async (tanggal: string) => {
+    const toDelete = records.filter((r) => r.tanggal === tanggal);
+    if (toDelete.length === 0) return;
+    const toDeleteIds = toDelete.map((r) => r.id);
+    setRecords((prev) => prev.filter((r) => r.tanggal !== tanggal));
+    try {
+      setSyncStatus('syncing');
+      await cloudDeleteMultipleRecords(toDeleteIds);
+      setSyncStatus('synced');
+    } catch (e) {
+      console.error('Error deleting records on date from cloud', e);
+      setSyncStatus('synced');
+    }
+  };
+
+  // Handler: Delete Multiple Records
+  const handleDeleteMultipleRecords = async (recordIds: string[]) => {
+    if (recordIds.length === 0) return;
+    const idSet = new Set(recordIds);
+    setRecords((prev) => prev.filter((r) => !idSet.has(r.id)));
+    try {
+      setSyncStatus('syncing');
+      await cloudDeleteMultipleRecords(recordIds);
+      setSyncStatus('synced');
+    } catch (e) {
+      console.error('Error bulk deleting records from cloud', e);
+      setSyncStatus('synced');
     }
   };
 
@@ -413,14 +514,17 @@ export default function App() {
         {/* Dynamic View Scrollable Container */}
         <div className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 overflow-y-auto space-y-6">
           {activeTab === 'input' && (
-            <InputPresensi
-              pesertaList={pesertaList}
-              records={records}
-              holidays={holidays}
-              onSaveRecord={handleSaveRecord}
-              onDeleteRecord={handleDeleteRecord}
-              onBulkMarkHadir={handleBulkMarkHadir}
-            />
+            <ErrorBoundary fallbackTitle="Kendala Memuat Halaman Presensi">
+              <InputPresensi
+                pesertaList={pesertaList}
+                records={records}
+                holidays={holidays}
+                onSaveRecord={handleSaveRecord}
+                onDeleteRecord={handleDeleteRecord}
+                onDeleteAllRecordsOnDate={handleDeleteAllRecordsOnDate}
+                onBulkMarkHadir={handleBulkMarkHadir}
+              />
+            </ErrorBoundary>
           )}
 
           {activeTab === 'dashboard' && (
@@ -430,6 +534,9 @@ export default function App() {
               activeDaysSetting={activeDays}
               onNavigateToRekap={() => setActiveTab('rekap_orang')}
               onNavigateToInput={() => setActiveTab('input')}
+              syncStatus={syncStatus}
+              onSyncAllToFirebase={handleSyncAllToFirebase}
+              isSyncingAll={isSyncingAll}
             />
           )}
 
@@ -440,6 +547,9 @@ export default function App() {
               records={records}
               activeDaysSetting={activeDays}
               onDeleteRecord={handleDeleteRecord}
+              onDeletePeserta={handleDeletePeserta}
+              onDeleteMultipleRecords={handleDeleteMultipleRecords}
+              onSaveActiveDays={handleSaveActiveDays}
               onEditPeserta={handleEditPeserta}
               onSaveRecord={handleSaveRecord}
               onNavigateTab={(tab) => setActiveTab(tab)}
@@ -453,6 +563,9 @@ export default function App() {
               records={records}
               activeDaysSetting={activeDays}
               onDeleteRecord={handleDeleteRecord}
+              onDeletePeserta={handleDeletePeserta}
+              onDeleteMultipleRecords={handleDeleteMultipleRecords}
+              onSaveActiveDays={handleSaveActiveDays}
               onEditPeserta={handleEditPeserta}
               onSaveRecord={handleSaveRecord}
               onNavigateTab={(tab) => setActiveTab(tab)}
@@ -465,6 +578,8 @@ export default function App() {
               onAddPeserta={handleAddPeserta}
               onEditPeserta={handleEditPeserta}
               onDeletePeserta={handleDeletePeserta}
+              onDeleteMultiplePeserta={handleDeleteMultiplePeserta}
+              onDeleteAllPeserta={handleDeleteAllPeserta}
               onImportPeserta={handleImportPeserta}
             />
           )}

@@ -8,17 +8,17 @@ const STORAGE_KEYS = {
 };
 
 export const INITIAL_PESERTA: Peserta[] = [
-  { id: '1', idPps: 'PPS-001', nama: 'Ust. H. Ahmad Fauzi, S.Pd.I', kelas: 'Aliyah', jabatan: 'Guru Fathul Qorib' },
-  { id: '2', idPps: 'PPS-002', nama: 'Ust. M. Hasan Basri', kelas: 'Tsanawiyah Kelas III', jabatan: 'Guru Jurumiyyah' },
-  { id: '3', idPps: 'PPS-003', nama: 'Ust. Abdul Karim Ma\'ruf', kelas: 'Tsanawiyah Kelas II', jabatan: 'Guru Matan Taqrib' },
-  { id: '4', idPps: 'PPS-004', nama: 'Ust. Nur Hidayatullah', kelas: 'Tsanawiyah Kelas I', jabatan: 'Guru Nadhom Imrithi' },
-  { id: '5', idPps: 'PPS-005', nama: 'Ustz. Hj. Siti Maryam', kelas: 'Ibtidaiyah Kelas 6', jabatan: 'Guru Akhlaq Lil Banat' },
-  { id: '6', idPps: 'PPS-006', nama: 'Ust. M. Syukron Katsir', kelas: 'Ibtidaiyah Kelas 5', jabatan: 'Guru Alfiyyah' },
-  { id: '7', idPps: 'PPS-007', nama: 'Ust. K.H. Zainal Abidin', kelas: 'Ibtidaiyah Kelas 4', jabatan: 'Mustahiq & Pembina Kitab' },
-  { id: '8', idPps: 'PPS-008', nama: 'Ust. Ridwan Shodiq', kelas: 'Ibtidaiyah 1-3', jabatan: 'Guru Safinatun Naja' },
-  { id: '9', idPps: 'PPS-009', nama: 'Ust. Bilal Manshur', kelas: 'Idadiyah PK', jabatan: 'Guru Kitab Mabadi' },
-  { id: '10', idPps: 'PPS-010', nama: 'Ust. Salman Al-Farisi', kelas: 'Idadiyah Reguler', jabatan: 'Guru Tijan Ad-Darori' },
-  { id: '11', idPps: 'PPS-011', nama: 'Ust. Zulkifli Anwar', kelas: 'Idadiyah Takhossus', jabatan: 'Guru Nahwu Sharaf' },
+  { id: '1', idPps: 'PPS-001', nama: 'Ust. H. Ahmad Fauzi, S.Pd.I', dom: 'Bangkalan', kelas: 'Aliyah', majlis: 'Majlis Utama', jabatan: 'Guru Fathul Qorib' },
+  { id: '2', idPps: 'PPS-002', nama: 'Ust. M. Hasan Basri', dom: 'Sampang', kelas: 'Tsanawiyah 3', majlis: 'Majlis Al-Fath', jabatan: 'Guru Jurumiyyah' },
+  { id: '3', idPps: 'PPS-003', nama: 'Ust. Abdul Karim Ma\'ruf', dom: 'Pamekasan', kelas: 'Tsanawiyah 2', majlis: 'Majlis Al-Ihsan', jabatan: 'Guru Matan Taqrib' },
+  { id: '4', idPps: 'PPS-004', nama: 'Ust. Nur Hidayatullah', dom: 'Sumenep', kelas: 'Tsanawiyah 1', majlis: 'Majlis An-Nur', jabatan: 'Guru Nadhom Imrithi' },
+  { id: '5', idPps: 'PPS-005', nama: 'Ustz. Hj. Siti Maryam', dom: 'Surabaya', kelas: 'Ibtidaiyah 6', majlis: 'Majlis Raudhah', jabatan: 'Guru Akhlaq Lil Banat' },
+  { id: '6', idPps: 'PPS-006', nama: 'Ust. M. Syukron Katsir', dom: 'Pasuruan', kelas: 'Ibtidaiyah 5', majlis: 'Majlis Darussalam', jabatan: 'Guru Alfiyyah' },
+  { id: '7', idPps: 'PPS-007', nama: 'Ust. K.H. Zainal Abidin', dom: 'Gresik', kelas: 'Ibtidaiyah 4', majlis: 'Majlis Al-Barokah', jabatan: 'Mustahiq & Pembina Kitab' },
+  { id: '8', idPps: 'PPS-008', nama: 'Ust. Ridwan Shodiq', dom: 'Sidoarjo', kelas: 'Ibtidaiyah 1-3', majlis: 'Majlis Utama', jabatan: 'Guru Safinatun Naja' },
+  { id: '9', idPps: 'PPS-009', nama: 'Ust. Bilal Manshur', dom: 'Malang', kelas: 'Idadiyah PK', majlis: 'Majlis Al-Fath', jabatan: 'Guru Kitab Mabadi' },
+  { id: '10', idPps: 'PPS-010', nama: 'Ust. Salman Al-Farisi', dom: 'Jember', kelas: 'Idadiyah Reguler', majlis: 'Majlis Al-Ihsan', jabatan: 'Guru Tijan Ad-Darori' },
+  { id: '11', idPps: 'PPS-011', nama: 'Ust. Zulkifli Anwar', dom: 'Kediri', kelas: 'Idadiyah Takhossus', majlis: 'Majlis An-Nur', jabatan: 'Guru Nahwu Sharaf' },
 ];
 
 export const INITIAL_HOLIDAYS: HolidaySettings = {
@@ -47,7 +47,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-01',
       idPps: 'PPS-001',
       nama: 'Ust. H. Ahmad Fauzi, S.Pd.I',
-      kelas: 'Ula A',
+      dom: 'Bangkalan',
+      kelas: 'Aliyah',
+      majlis: 'Majlis Utama',
       jabatan: 'Guru Fathul Qorib',
       status: 'Hadir',
       timestamp: 1788220800000,
@@ -57,7 +59,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-01',
       idPps: 'PPS-002',
       nama: 'Ust. M. Hasan Basri',
-      kelas: 'Ula B',
+      dom: 'Sampang',
+      kelas: 'Tsanawiyah 3',
+      majlis: 'Majlis Al-Fath',
       jabatan: 'Guru Jurumiyyah',
       status: 'Hadir',
       timestamp: 1788220800000,
@@ -67,7 +71,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-01',
       idPps: 'PPS-003',
       nama: 'Ust. Abdul Karim Ma\'ruf',
-      kelas: 'Wustho A',
+      dom: 'Pamekasan',
+      kelas: 'Tsanawiyah 2',
+      majlis: 'Majlis Al-Ihsan',
       jabatan: 'Guru Matan Taqrib',
       status: 'Izin',
       alasan: 'Izin Bepergian',
@@ -79,7 +85,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-02',
       idPps: 'PPS-001',
       nama: 'Ust. H. Ahmad Fauzi, S.Pd.I',
-      kelas: 'Ula A',
+      dom: 'Bangkalan',
+      kelas: 'Aliyah',
+      majlis: 'Majlis Utama',
       jabatan: 'Guru Fathul Qorib',
       status: 'Hadir',
       timestamp: 1788307200000,
@@ -89,7 +97,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-02',
       idPps: 'PPS-004',
       nama: 'Ust. Nur Hidayatullah',
-      kelas: 'Wustho B',
+      dom: 'Sumenep',
+      kelas: 'Tsanawiyah 1',
+      majlis: 'Majlis An-Nur',
       jabatan: 'Guru Nadhom Imrithi',
       status: 'Sakit',
       alasan: 'Sakit',
@@ -101,8 +111,10 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-02',
       idPps: 'PPS-009',
       nama: 'Ust. Bilal Manshur',
-      kelas: 'Ula A',
-      jabatan: 'Badal Guru',
+      dom: 'Malang',
+      kelas: 'Idadiyah PK',
+      majlis: 'Majlis Al-Fath',
+      jabatan: 'Guru Kitab Mabadi',
       status: 'Alfa',
       alasan: 'Alasan Lain',
       keterangan: 'Belum ada konfirmasi ke TU',
@@ -113,7 +125,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-03',
       idPps: 'PPS-001',
       nama: 'Ust. H. Ahmad Fauzi, S.Pd.I',
-      kelas: 'Ula A',
+      dom: 'Bangkalan',
+      kelas: 'Aliyah',
+      majlis: 'Majlis Utama',
       jabatan: 'Guru Fathul Qorib',
       status: 'Hadir',
       timestamp: 1788393600000,
@@ -123,7 +137,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-03',
       idPps: 'PPS-002',
       nama: 'Ust. M. Hasan Basri',
-      kelas: 'Ula B',
+      dom: 'Sampang',
+      kelas: 'Tsanawiyah 3',
+      majlis: 'Majlis Al-Fath',
       jabatan: 'Guru Jurumiyyah',
       status: 'Hadir',
       timestamp: 1788393600000,
@@ -133,7 +149,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-03',
       idPps: 'PPS-003',
       nama: 'Ust. Abdul Karim Ma\'ruf',
-      kelas: 'Wustho A',
+      dom: 'Pamekasan',
+      kelas: 'Tsanawiyah 2',
+      majlis: 'Majlis Al-Ihsan',
       jabatan: 'Guru Matan Taqrib',
       status: 'Hadir',
       timestamp: 1788393600000,
@@ -143,7 +161,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-04',
       idPps: 'PPS-005',
       nama: 'Ustz. Hj. Siti Maryam',
-      kelas: 'Majelis Banat',
+      dom: 'Surabaya',
+      kelas: 'Ibtidaiyah 6',
+      majlis: 'Majlis Raudhah',
       jabatan: 'Guru Akhlaq Lil Banat',
       status: 'Izin',
       alasan: 'Izin Bepergian',
@@ -155,8 +175,10 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-05',
       idPps: 'PPS-009',
       nama: 'Ust. Bilal Manshur',
-      kelas: 'Ula A',
-      jabatan: 'Badal Guru',
+      dom: 'Malang',
+      kelas: 'Idadiyah PK',
+      majlis: 'Majlis Al-Fath',
+      jabatan: 'Guru Kitab Mabadi',
       status: 'Sakit',
       alasan: 'Sakit',
       keterangan: 'Surat dokter',
@@ -167,7 +189,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-06',
       idPps: 'PPS-004',
       nama: 'Ust. Nur Hidayatullah',
-      kelas: 'Wustho B',
+      dom: 'Sumenep',
+      kelas: 'Tsanawiyah 1',
+      majlis: 'Majlis An-Nur',
       jabatan: 'Guru Nadhom Imrithi',
       status: 'Alfa',
       alasan: 'Alasan Lain',
@@ -179,7 +203,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-07',
       idPps: 'PPS-001',
       nama: 'Ust. H. Ahmad Fauzi, S.Pd.I',
-      kelas: 'Ula A',
+      dom: 'Bangkalan',
+      kelas: 'Aliyah',
+      majlis: 'Majlis Utama',
       jabatan: 'Guru Fathul Qorib',
       status: 'Hadir',
       timestamp: 1788739200000,
@@ -189,8 +215,10 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-07',
       idPps: 'PPS-006',
       nama: 'Ust. M. Syukron Katsir',
-      kelas: 'Ulya',
-      jabatan: 'Guru Alfiyyah Ibnu Malik',
+      dom: 'Pasuruan',
+      kelas: 'Ibtidaiyah 5',
+      majlis: 'Majlis Darussalam',
+      jabatan: 'Guru Alfiyyah',
       status: 'Hadir',
       timestamp: 1788739200000,
     },
@@ -199,7 +227,9 @@ const getSampleRecords = (): AttendanceRecord[] => {
       tanggal: '2026-09-07',
       idPps: 'PPS-007',
       nama: 'Ust. K.H. Zainal Abidin',
-      kelas: 'Ulya',
+      dom: 'Gresik',
+      kelas: 'Ibtidaiyah 4',
+      majlis: 'Majlis Al-Barokah',
       jabatan: 'Mustahiq & Pembina Kitab',
       status: 'Hadir',
       timestamp: 1788739200000,
@@ -217,7 +247,17 @@ export const getStoredPeserta = (): Peserta[] => {
       return INITIAL_PESERTA;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : INITIAL_PESERTA;
+    if (Array.isArray(parsed)) {
+      return parsed.map((p: Peserta) => {
+        const match = INITIAL_PESERTA.find((init) => init.idPps === p.idPps);
+        return {
+          ...p,
+          dom: p.dom || match?.dom || 'Bangkalan',
+          majlis: p.majlis || match?.majlis || 'Majlis Utama',
+        };
+      });
+    }
+    return INITIAL_PESERTA;
   } catch (e) {
     console.error('Error reading peserta from localStorage', e);
     return INITIAL_PESERTA;
@@ -241,7 +281,17 @@ export const getStoredRecords = (): AttendanceRecord[] => {
       return sample;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) {
+      return parsed.map((r: AttendanceRecord) => {
+        const match = INITIAL_PESERTA.find((init) => init.idPps === r.idPps);
+        return {
+          ...r,
+          dom: r.dom || match?.dom || '-',
+          majlis: r.majlis || match?.majlis || 'Majlis Utama',
+        };
+      });
+    }
+    return [];
   } catch (e) {
     console.error('Error reading records from localStorage', e);
     return [];
